@@ -88,10 +88,13 @@ async def record_result(self, winner: str, loser: str, tipo: str, pontos: int):
             WHERE player = ?
         """, (loser,))
         await db.commit()
-    async def get_page_tipo(self, tipo: str, limit: int, offset: int):
+       async def get_page_tipo(self, tipo: str, limit: int, offset: int):
         async with aiosqlite.connect(self.path) as db:
             cur = await db.execute("""
-                SELECT player, wins, losses,
+                SELECT player,
+                       tipo,
+                       wins,
+                       losses,
                        CASE WHEN (wins + losses) = 0 THEN 0.0
                             ELSE ROUND(100.0 * wins * 1.0 / (wins + losses), 2)
                        END AS winrate,
