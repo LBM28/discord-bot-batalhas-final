@@ -1,5 +1,4 @@
 import os
-import time
 import aiosqlite
 import discord
 from discord.ext import commands
@@ -11,6 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "batalhas.db"
 
 TOKEN = os.getenv("DISCORD_TOKEN")
+
 if not TOKEN:
     raise RuntimeError("⚠️ Token não encontrado. Defina DISCORD_TOKEN no ambiente.")
 
@@ -29,71 +29,43 @@ async def on_ready():
     print(f"🤖 Logado como {bot.user} | Comandos sincronizados.")
 
 # ------------------- COMANDOS -------------------
+
 @bot.tree.command(name="battle", description="Cria uma batalha entre dois jogadores.")
-@app_commands.describe(
-    player1="Nome do primeiro jogador",
-    player2="Nome do segundo jogador",
-    tipo="Tipo de batalha (Comp, Ginasio ou Convencional)"
-)
+@app_commands.describe(tipo="Tipo da batalha (Comp, Ginasio ou Convencional)")
 @app_commands.choices(tipo=[
-    app_commands.Choice(name="Competitiva", value="Comp"),
-    app_commands.Choice(name="Ginasio", value="Ginasio"),
-    app_commands.Choice(name="Convencional", value="Convencional")
+    app_commands.Choice(name="Competitiva", value="comp"),
+    app_commands.Choice(name="Ginásio", value="ginasio"),
+    app_commands.Choice(name="Convencional", value="convencional"),
 ])
-async def battle(interaction: discord.Interaction, player1: str, player2: str, tipo: str):
+async def battle(interaction: discord.Interaction, player1: str, player2: str, tipo: app_commands.Choice[str]):
     await db.add_player(player1)
     await db.add_player(player2)
 
-    tipo = tipo.capitalize()
-    pontos = {
-        "Comp": 3,
-        "Ginasio": 5
-    }.get(tipo, 1)
+    tipo_valor = tipo.value.lower()
+    pontos = 3 if tipo_valor == "comp" else 5 if tipo_valor == "ginasio" else 1
 
-    view = BattleView(player1, player2, tipo, pontos)
+    view = BattleView(player1, player2, pontos)
     await interaction.response.send_message(
         f"⚔️ **Batalha criada!**\n**{player1}** vs **{player2}**\n"
-        f"🏆 Tipo: **{tipo}**\nEscolha o vencedor abaixo:",
+        f"🏆 Tipo: **{tipo.name}**\nEscolha o vencedor abaixo:",
         view=view
     )
 
-@bot.tree.command(name="tabela", description="Mostra a tabela de jogadores (geral ou por tipo).")
-@app_commands.describe(tipo="Escolha o tipo para filtrar (Geral, Comp, Ginasio, Convencional)")
-@app_commands.choices(tipo=[
-    app_commands.Choice(name="📋 Geral", value="Geral"),
-    app_commands.Choice(name="🏆 Competitiva", value="Comp"),
-    app_commands.Choice(name="🏛️ Ginasio", value="Ginasio"),
-    app_commands.Choice(name="⚔️ Convencional", value="Convencional"),
-])
-async def tabela(interaction: discord.Interaction, tipo: str = "Geral"):
-    tipo = tipo.capitalize()
-
-    if tipo == "Geral":
-        stats = await db.get_page(50, 0)                 # 6 colunas
-        titulo = "Geral"
-    else:
-        stats = await db.get_page_tipo(tipo, 50, 0)      # 6 colunas (mesmo shape)
-        titulo = tipo
-
+@bot.tree.command(name="tabela", description="Mostra a tabela de vitórias, derrotas e pontuação.")
+async def tabela(interaction: discord.Interaction):
+    stats = await db.get_page(20, 0)
     if not stats:
-        await interaction.response.send_message(f"⚠️ Nenhum registro encontrado para **{titulo}**.")
-        return
+        return await interaction.response.send_message("⚠️ Nenhum jogador ainda tem registros.")
 
-    # Tabela monoespaçada
-    msg = f"🏅 **Tabela de Jogadores — {titulo}** 🏅\n```\n"
-    msg += f"{'Jogador':<12}{'Tipo':<12}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
-    msg += "-" * 45 + "\n"
+    msg = "🏅 **Tabela de Jogadores** 🏅\n\n"
+    for player, wins, losses, winrate, score in stats:
+        msg += f"**{player}** - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
 
-    for player, tipo_row, wins, losses, winrate, score in stats:
-        msg += f"{player:<12}{tipo_row:<12}{wins:>3}{losses:>3}{winrate:>8.1f}{score:>6}\n"
-
-    msg += "```"
     await interaction.response.send_message(msg)
-
 
 @bot.tree.command(name="reset", description="Reseta a tabela de batalhas (somente o dono).")
 async def reset(interaction: discord.Interaction):
-    owner_id = 496404030038212618  # coloque seu ID do Discord aqui
+    owner_id = 123456789012345678  # coloque seu ID do Discord aqui
 
     if interaction.user.id != owner_id:
         return await interaction.response.send_message("❌ Apenas o dono pode usar este comando.", ephemeral=True)
@@ -107,22 +79,21 @@ async def reset(interaction: discord.Interaction):
 # ------------------- VIEW -------------------
 
 class BattleView(discord.ui.View):
-    def __init__(self, p1, p2, tipo, pontos):
+    def __init__(self, p1, p2, pontos):
         super().__init__(timeout=60)
         self.p1 = p1
         self.p2 = p2
-        self.tipo = tipo
         self.pontos = pontos
 
     @discord.ui.button(label="🏆 Jogador 1 venceu", style=discord.ButtonStyle.green)
     async def player1_win(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await db.record_result(self.p1, self.p2, self.tipo, self.pontos)
-        await interaction.response.edit_message(content=f"✅ **{self.p1} venceu!** (+{self.pontos} pts) | Tipo: {self.tipo}", view=None)
+        await db.record_result(self.p1, self.p2, self.pontos)
+        await interaction.response.edit_message(content=f"✅ **{self.p1} venceu!** (+{self.pontos} pts)", view=None)
 
     @discord.ui.button(label="🏆 Jogador 2 venceu", style=discord.ButtonStyle.blurple)
     async def player2_win(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await db.record_result(self.p2, self.p1, self.tipo, self.pontos)
-        await interaction.response.edit_message(content=f"✅ **{self.p2} venceu!** (+{self.pontos} pts) | Tipo: {self.tipo}", view=None)
+        await db.record_result(self.p2, self.p1, self.pontos)
+        await interaction.response.edit_message(content=f"✅ **{self.p2} venceu!** (+{self.pontos} pts)", view=None)
 
     @discord.ui.button(label="❌ Cancelar", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
