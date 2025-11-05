@@ -36,27 +36,24 @@ async def on_ready():
     tipo="Tipo de batalha (Comp, Ginasio ou Convencional)"
 )
 @app_commands.choices(tipo=[
-    app_commands.Choice(name="Competitiva", value="comp"),
-    app_commands.Choice(name="Ginasio", value="ginasio"),
-    app_commands.Choice(name="Convencional", value="convencional")
+    app_commands.Choice(name="Competitiva", value="Comp"),
+    app_commands.Choice(name="Ginasio", value="Ginasio"),
+    app_commands.Choice(name="Convencional", value="Convencional")
 ])
-async def battle(interaction: discord.Interaction, player1: str, player2: str, tipo: app_commands.Choice[str]):
+async def battle(interaction: discord.Interaction, player1: str, player2: str, tipo: str):
     await db.add_player(player1)
     await db.add_player(player2)
 
-    # Tipo escolhido
-    tipo_nome = tipo.value.capitalize()
-
-    # Pontuação baseada no tipo
+    tipo = tipo.capitalize()
     pontos = {
         "Comp": 3,
         "Ginasio": 5
-    }.get(tipo_nome, 1)
+    }.get(tipo, 1)
 
-    view = BattleView(player1, player2, tipo_nome, pontos)
+    view = BattleView(player1, player2, tipo, pontos)
     await interaction.response.send_message(
         f"⚔️ **Batalha criada!**\n**{player1}** vs **{player2}**\n"
-        f"🏆 Tipo: **{tipo_nome}**\nEscolha o vencedor abaixo:",
+        f"🏆 Tipo: **{tipo}**\nEscolha o vencedor abaixo:",
         view=view
     )
 
