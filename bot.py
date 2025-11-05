@@ -57,17 +57,34 @@ async def battle(interaction: discord.Interaction, player1: str, player2: str, t
         view=view
     )
 
-@bot.tree.command(name="tabela", description="Mostra a tabela de vitórias, derrotas e pontuação.")
-async def tabela(interaction: discord.Interaction):
-    stats = await db.get_page(20, 0)
-    if not stats:
-        return await interaction.response.send_message("⚠️ Nenhum jogador ainda tem registros.")
+@bot.tree.command(name="tabela", description="Mostra a tabela de jogadores (geral ou por tipo).")
+@app_commands.describe(tipo="Escolha o tipo de batalha para filtrar (opcional)")
+@app_commands.choices(tipo=[
+    app_commands.Choice(name="🏆 Competitiva", value="Comp"),
+    app_commands.Choice(name="🏛️ Ginasio", value="Ginasio"),
+    app_commands.Choice(name="⚔️ Convencional", value="Convencional"),
+    app_commands.Choice(name="📋 Geral", value="Geral")
+])
+async def tabela(interaction: discord.Interaction, tipo: str = "Geral"):
+    tipo = tipo.capitalize()
 
-    msg = "🏅 **Tabela de Jogadores** 🏅\n\n"
-    for player, tipo, wins, losses, winrate, score in stats:
-        msg += f"**{player}** ({tipo}) - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
+    # Consulta dinâmica com filtro opcional
+    if tipo == "Geral":
+        stats = await db.get_page(50, 0)
+    else:
+        stats = await db.get_page_tipo(tipo, 50, 0)
+
+    if not stats:
+        return await interaction.response.send_message(
+            f"⚠️ Nenhum registro encontrado para o tipo **{tipo}**."
+        )
+
+    msg = f"🏅 **Tabela de Jogadores - {tipo}** 🏅\n\n"
+    for player, wins, losses, winrate, score in stats:
+        msg += f"**{player}** - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
 
     await interaction.response.send_message(msg)
+
 
 @bot.tree.command(name="reset", description="Reseta a tabela de batalhas (somente o dono).")
 async def reset(interaction: discord.Interaction):
