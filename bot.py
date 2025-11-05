@@ -29,18 +29,34 @@ async def on_ready():
     print(f"🤖 Logado como {bot.user} | Comandos sincronizados.")
 
 # ------------------- COMANDOS -------------------
-
 @bot.tree.command(name="battle", description="Cria uma batalha entre dois jogadores.")
-async def battle(interaction: discord.Interaction, player1: str, player2: str, tipo: str):
+@app_commands.describe(
+    player1="Nome do primeiro jogador",
+    player2="Nome do segundo jogador",
+    tipo="Tipo de batalha (Comp, Ginasio ou Convencional)"
+)
+@app_commands.choices(tipo=[
+    app_commands.Choice(name="Competitiva", value="comp"),
+    app_commands.Choice(name="Ginasio", value="ginasio"),
+    app_commands.Choice(name="Convencional", value="convencional")
+])
+async def battle(interaction: discord.Interaction, player1: str, player2: str, tipo: app_commands.Choice[str]):
     await db.add_player(player1)
     await db.add_player(player2)
 
-    pontos = 3 if tipo.lower() == "comp" else 5 if tipo.lower() == "ginasio" else 1
+    # Tipo escolhido
+    tipo_nome = tipo.value.capitalize()
 
-    view = BattleView(player1, player2, tipo.capitalize(), pontos)
+    # Pontuação baseada no tipo
+    pontos = {
+        "Comp": 3,
+        "Ginasio": 5
+    }.get(tipo_nome, 1)
+
+    view = BattleView(player1, player2, tipo_nome, pontos)
     await interaction.response.send_message(
         f"⚔️ **Batalha criada!**\n**{player1}** vs **{player2}**\n"
-        f"🏆 Tipo: **{tipo.capitalize()}**\nEscolha o vencedor abaixo:",
+        f"🏆 Tipo: **{tipo_nome}**\nEscolha o vencedor abaixo:",
         view=view
     )
 
