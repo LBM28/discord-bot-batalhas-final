@@ -10,8 +10,8 @@ from database import DB
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "batalhas.db"
 
-# Lê o token do ambiente (no Render ou .env local)
 TOKEN = os.getenv("DISCORD_TOKEN")
+
 if not TOKEN:
     raise RuntimeError("⚠️ Token não encontrado. Defina DISCORD_TOKEN no ambiente.")
 
