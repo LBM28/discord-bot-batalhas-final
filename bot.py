@@ -53,13 +53,46 @@ async def battle(interaction: discord.Interaction, player1: str, player2: str, t
 
 @bot.tree.command(name="tabela", description="Mostra a tabela de vitórias, derrotas e pontuação.")
 async def tabela(interaction: discord.Interaction):
-    stats = await db.get_page(20, 0)
-    if not stats:
-        return await interaction.response.send_message("⚠️ Nenhum jogador ainda tem registros.")
+    # busca até 50 linhas
+    stats = await db.get_page(50, 0)
 
-    msg = "🏅 **Tabela de Jogadores** 🏅\n\n"
-    for player, wins, losses, winrate, score in stats:
-        msg += f"**{player}** - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
+    if not stats:
+        await interaction.response.send_message("⚠️ Nenhum jogador ainda tem registros.")
+        return
+
+    # monta tabela monoespaçada
+    def render_tabela(linhas):
+        # Detecta shape de cada linha
+        # 5 colunas: (player, wins, losses, winrate, score)
+        # 6 colunas: (player, tipo, wins, losses, winrate, score)
+        has_tipo = len(linhas[0]) == 6
+
+        title = "🏅 **Tabela de Jogadores** 🏅\n```\n"
+        if has_tipo:
+            header = f"{'Jogador':<14}{'Tipo':<12}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
+            sep    = "-" * (14+12+3+3+8+6) + "\n"
+        else:
+            header = f"{'Jogador':<20}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
+            sep    = "-" * (20+3+3+8+6) + "\n"
+
+        out = [title, header, sep]
+
+        for row in linhas:
+            if len(row) == 6:
+                player, tipo, wins, losses, winrate, score = row
+                out.append(f"{player:<14}{tipo:<12}{wins:>3}{losses:>3}{float(winrate):>8.1f}{int(score):>6}\n")
+            elif len(row) == 5:
+                player, wins, losses, winrate, score = row
+                out.append(f"{player:<20}{wins:>3}{losses:>3}{float(winrate):>8.1f}{int(score):>6}\n")
+            else:
+                # linha inesperada: imprime crua pra não quebrar o comando
+                out.append(str(row) + "\n")
+
+        out.append("```")
+        return "".join(out)
+
+    msg = render_tabela(stats)
+    await interaction.response.send_message(msg)
 
     await interaction.response.send_message(msg)
 
