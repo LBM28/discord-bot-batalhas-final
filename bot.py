@@ -65,7 +65,7 @@ async def tabela(interaction: discord.Interaction):
 
 @bot.tree.command(name="reset", description="Reseta a tabela de batalhas (somente o dono).")
 async def reset(interaction: discord.Interaction):
-    owner_id = 123456789012345678  # coloque seu ID do Discord aqui
+    owner_id = 496404030038212618 # coloque seu ID do Discord aqui
 
     if interaction.user.id != owner_id:
         return await interaction.response.send_message("❌ Apenas o dono pode usar este comando.", ephemeral=True)
