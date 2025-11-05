@@ -7,7 +7,6 @@ class DB:
 
     async def init(self):
         async with aiosqlite.connect(self.path) as db:
-            # Cria a tabela se não existir
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS stats (
                     player TEXT PRIMARY KEY,
@@ -19,27 +18,21 @@ class DB:
             await db.commit()
 
     async def add_player(self, player: str):
-        # Normaliza minimamente o nome (tira espaços extras)
-        player = player.strip()
+        player = (player or "").strip()
         if not player:
             return
         async with aiosqlite.connect(self.path) as db:
-            await db.execute(
-                "INSERT OR IGNORE INTO stats (player) VALUES (?)",
-                (player,)
-            )
+            await db.execute("INSERT OR IGNORE INTO stats (player) VALUES (?)", (player,))
             await db.commit()
 
     async def record_result(self, winner: str, loser: str, pontos: int):
-        winner = winner.strip()
-        loser  = loser.strip()
+        winner = (winner or "").strip()
+        loser  = (loser  or "").strip()
         async with aiosqlite.connect(self.path) as db:
-            # Atualiza vencedor
             await db.execute(
                 "UPDATE stats SET wins = wins + 1, score = score + ? WHERE player = ?",
                 (int(pontos), winner)
             )
-            # Atualiza perdedor
             await db.execute(
                 "UPDATE stats SET losses = losses + 1 WHERE player = ?",
                 (loser,)
@@ -48,7 +41,7 @@ class DB:
 
     async def get_page(self, limit: int, offset: int):
         """
-        Retorna 5 colunas, nesta ordem:
+        Retorna SEMPRE 5 colunas, nesta ordem:
         (player, wins, losses, winrate, score)
         """
         async with aiosqlite.connect(self.path) as db:
