@@ -51,7 +51,7 @@ async def battle(interaction: discord.Interaction, player1: str, player2: str, t
         view=view
     )
 
-@bot.tree.command(name="tabela", description="Mostra a tabela de vitórias, derrotas e pontuação.")
+@bot.tree.command(name="tabela", description="Mostra a tabela geral de vitórias, derrotas e pontuação.")
 async def tabela(interaction: discord.Interaction):
     stats = await db.get_page(50, 0)
 
@@ -59,32 +59,10 @@ async def tabela(interaction: discord.Interaction):
         await interaction.response.send_message("⚠️ Nenhum jogador ainda tem registros.")
         return
 
-    # Detecta formato das linhas automaticamente:
-    # 5 colunas: (player, wins, losses, winrate, score)
-    # 6 colunas: (player, tipo,  wins, losses, winrate, score)
-    has_tipo = len(stats[0]) == 6
+    msg = "🏅 **Tabela de Jogadores** 🏅\n\n"
+    for player, wins, losses, winrate, score in stats:
+        msg += f"**{player}** - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
 
-    # Cabeçalho + tabela monoespaçada
-    if has_tipo:
-        header = f"{'Jogador':<14}{'Tipo':<12}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
-        sep    = "-" * (14+12+3+3+8+6) + "\n"
-    else:
-        header = f"{'Jogador':<20}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
-        sep    = "-" * (20+3+3+8+6) + "\n"
-
-    lines = []
-    for row in stats:
-        if len(row) == 6:
-            player, tipo, wins, losses, winrate, score = row
-            lines.append(f"{player:<14}{tipo:<12}{wins:>3}{losses:>3}{float(winrate):>8.1f}{int(score):>6}")
-        elif len(row) == 5:
-            player, wins, losses, winrate, score = row
-            lines.append(f"{player:<20}{wins:>3}{losses:>3}{float(winrate):>8.1f}{int(score):>6}")
-        else:
-            # Linha inesperada (não quebra o comando)
-            lines.append(str(row))
-
-    msg = "🏅 **Tabela de Jogadores** 🏅\n```\n" + header + sep + "\n".join(lines) + "\n```"
     await interaction.response.send_message(msg)
 
 
