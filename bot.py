@@ -59,11 +59,30 @@ async def tabela(interaction: discord.Interaction):
         await interaction.response.send_message("⚠️ Nenhum jogador ainda tem registros.")
         return
 
-    msg = "🏅 **Tabela de Jogadores** 🏅\n\n"
-    for player, wins, losses, winrate, score in stats:
-        msg += f"**{player}** - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
+    # Render resiliente: aceita linhas com 5 ou 6 colunas
+    # 5: (player, wins, losses, winrate, score)
+    # 6: (player, tipo,  wins, losses, winrate, score)
+    has_tipo = len(stats[0]) == 6
 
+    if has_tipo:
+        header = f"{'Jogador':<14}{'Tipo':<12}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
+        sep    = "-" * (14+12+3+3+8+6) + "\n"
+    else:
+        header = f"{'Jogador':<20}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
+        sep    = "-" * (20+3+3+8+6) + "\n"
+
+    linhas = []
+    for row in stats:
+        if len(row) == 6:
+            player, tipo, wins, losses, winrate, score = row
+            linhas.append(f"{player:<14}{tipo:<12}{wins:>3}{losses:>3}{float(winrate):>8.1f}{int(score):>6}")
+        else:
+            player, wins, losses, winrate, score = row
+            linhas.append(f"{player:<20}{wins:>3}{losses:>3}{float(winrate):>8.1f}{int(score):>6}")
+
+    msg = "🏅 **Tabela de Jogadores** 🏅\n```\n" + header + sep + "\n".join(linhas) + "\n```"
     await interaction.response.send_message(msg)
+
 
 
 @bot.tree.command(name="reset", description="Reseta a tabela de batalhas (somente o dono).")
