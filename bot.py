@@ -10,13 +10,10 @@ from database import DB
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "batalhas.db"
 
-# ------------------- TOKEN -------------------
 TOKEN = os.getenv("DISCORD_TOKEN")
-
 if not TOKEN:
     raise RuntimeError("⚠️ Token não encontrado. Defina DISCORD_TOKEN no ambiente.")
 
-# ------------------- CONFIGURAÇÕES -------------------
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -24,6 +21,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 db = DB(DB_PATH)
 
 # ------------------- EVENTOS -------------------
+
 @bot.event
 async def on_ready():
     await db.init()
@@ -31,52 +29,36 @@ async def on_ready():
     print(f"🤖 Logado como {bot.user} | Comandos sincronizados.")
 
 # ------------------- COMANDOS -------------------
+
 @bot.tree.command(name="battle", description="Cria uma batalha entre dois jogadores.")
 async def battle(interaction: discord.Interaction, player1: str, player2: str, tipo: str):
     await db.add_player(player1)
     await db.add_player(player2)
 
-    # Pontuação por tipo
-    tipo_lower = tipo.lower()
-    if tipo_lower == "comp":
-        pontos = 3
-    elif tipo_lower == "ginasio":
-        pontos = 5
-    else:
-        pontos = 1
+    pontos = 3 if tipo.lower() == "comp" else 5 if tipo.lower() == "ginasio" else 1
 
     view = BattleView(player1, player2, tipo.capitalize(), pontos)
     await interaction.response.send_message(
-        f"⚔️ **Batalha criada!**\n"
-        f"**{player1}** vs **{player2}**\n"
-        f"🏆 Tipo: **{tipo.capitalize()}**\n"
-        f"Escolha o vencedor abaixo:",
+        f"⚔️ **Batalha criada!**\n**{player1}** vs **{player2}**\n"
+        f"🏆 Tipo: **{tipo.capitalize()}**\nEscolha o vencedor abaixo:",
         view=view
     )
 
 @bot.tree.command(name="tabela", description="Mostra a tabela de vitórias, derrotas e pontuação.")
 async def tabela(interaction: discord.Interaction):
-    # Busca as estatísticas no banco
-    stats = await db.get_page(50, 0)  # pega até 50 jogadores
+    stats = await db.get_page(20, 0)
     if not stats:
         return await interaction.response.send_message("⚠️ Nenhum jogador ainda tem registros.")
 
-    # Cabeçalho da tabela
-    msg = "🏅 **Tabela de Jogadores** 🏅\n```\n"
-    msg += f"{'Jogador':<12}{'Tipo':<10}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
-    msg += "-" * 43 + "\n"
-
-    # Monta cada linha formatada
+    msg = "🏅 **Tabela de Jogadores** 🏅\n\n"
     for player, tipo, wins, losses, winrate, score in stats:
-        msg += f"{player:<12}{tipo:<10}{wins:>3}{losses:>3}{winrate:>8.1f}{score:>6}\n"
-
-    msg += "```"
+        msg += f"**{player}** ({tipo}) - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
 
     await interaction.response.send_message(msg)
 
 @bot.tree.command(name="reset", description="Reseta a tabela de batalhas (somente o dono).")
 async def reset(interaction: discord.Interaction):
-    owner_id = 123456789012345678  # coloque seu ID do Discord aqui
+    owner_id = 496404030038212618  # coloque seu ID do Discord aqui
 
     if interaction.user.id != owner_id:
         return await interaction.response.send_message("❌ Apenas o dono pode usar este comando.", ephemeral=True)
@@ -88,6 +70,7 @@ async def reset(interaction: discord.Interaction):
     await interaction.response.send_message("🧹 Tabela resetada com sucesso!")
 
 # ------------------- VIEW -------------------
+
 class BattleView(discord.ui.View):
     def __init__(self, p1, p2, tipo, pontos):
         super().__init__(timeout=60)
@@ -99,22 +82,15 @@ class BattleView(discord.ui.View):
     @discord.ui.button(label="🏆 Jogador 1 venceu", style=discord.ButtonStyle.green)
     async def player1_win(self, interaction: discord.Interaction, button: discord.ui.Button):
         await db.record_result(self.p1, self.p2, self.tipo, self.pontos)
-        await interaction.response.edit_message(
-            content=f"✅ **{self.p1} venceu!** (+{self.pontos} pts) | Tipo: {self.tipo}",
-            view=None
-        )
+        await interaction.response.edit_message(content=f"✅ **{self.p1} venceu!** (+{self.pontos} pts) | Tipo: {self.tipo}", view=None)
 
     @discord.ui.button(label="🏆 Jogador 2 venceu", style=discord.ButtonStyle.blurple)
     async def player2_win(self, interaction: discord.Interaction, button: discord.ui.Button):
         await db.record_result(self.p2, self.p1, self.tipo, self.pontos)
-        await interaction.response.edit_message(
-            content=f"✅ **{self.p2} venceu!** (+{self.pontos} pts) | Tipo: {self.tipo}",
-            view=None
-        )
+        await interaction.response.edit_message(content=f"✅ **{self.p2} venceu!** (+{self.pontos} pts) | Tipo: {self.tipo}", view=None)
 
     @discord.ui.button(label="❌ Cancelar", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content="❌ Batalha cancelada.", view=None)
 
-# ------------------- EXECUÇÃO -------------------
 bot.run(TOKEN)
