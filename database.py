@@ -7,37 +7,64 @@ class DB:
 
     async def init(self):
         async with aiosqlite.connect(self.path) as db:
+            # Cria a tabela se não existir
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS stats (
                     player TEXT PRIMARY KEY,
-                    wins INTEGER NOT NULL DEFAULT 0,
+                    wins   INTEGER NOT NULL DEFAULT 0,
                     losses INTEGER NOT NULL DEFAULT 0,
-                    score INTEGER NOT NULL DEFAULT 0
+                    score  INTEGER NOT NULL DEFAULT 0
                 )
             """)
             await db.commit()
 
     async def add_player(self, player: str):
+        # Normaliza minimamente o nome (tira espaços extras)
+        player = player.strip()
+        if not player:
+            return
         async with aiosqlite.connect(self.path) as db:
-            await db.execute("INSERT OR IGNORE INTO stats (player) VALUES (?)", (player,))
+            await db.execute(
+                "INSERT OR IGNORE INTO stats (player) VALUES (?)",
+                (player,)
+            )
             await db.commit()
 
     async def record_result(self, winner: str, loser: str, pontos: int):
+        winner = winner.strip()
+        loser  = loser.strip()
         async with aiosqlite.connect(self.path) as db:
-            await db.execute("UPDATE stats SET wins = wins + 1, score = score + ? WHERE player = ?", (pontos, winner))
-            await db.execute("UPDATE stats SET losses = losses + 1 WHERE player = ?", (loser,))
+            # Atualiza vencedor
+            await db.execute(
+                "UPDATE stats SET wins = wins + 1, score = score + ? WHERE player = ?",
+                (int(pontos), winner)
+            )
+            # Atualiza perdedor
+            await db.execute(
+                "UPDATE stats SET losses = losses + 1 WHERE player = ?",
+                (loser,)
+            )
             await db.commit()
 
     async def get_page(self, limit: int, offset: int):
+        """
+        Retorna 5 colunas, nesta ordem:
+        (player, wins, losses, winrate, score)
+        """
         async with aiosqlite.connect(self.path) as db:
             cur = await db.execute("""
-                SELECT player, wins, losses,
-                       CASE WHEN (wins + losses) = 0 THEN 0.0
-                            ELSE ROUND(100.0 * wins * 1.0 / (wins + losses), 2)
-                       END AS winrate,
-                       score
+                SELECT
+                    player,
+                    wins,
+                    losses,
+                    CASE
+                        WHEN (wins + losses) = 0 THEN 0.0
+                        ELSE ROUND(100.0 * wins * 1.0 / (wins + losses), 2)
+                    END AS winrate,
+                    score
                 FROM stats
                 ORDER BY score DESC, winrate DESC, wins DESC, player ASC
                 LIMIT ? OFFSET ?
-            """, (limit, offset))
-            return await cur.fetchall()
+            """, (int(limit), int(offset)))
+            rows = await cur.fetchall()
+        return rows
