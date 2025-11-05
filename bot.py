@@ -58,33 +58,37 @@ async def battle(interaction: discord.Interaction, player1: str, player2: str, t
     )
 
 @bot.tree.command(name="tabela", description="Mostra a tabela de jogadores (geral ou por tipo).")
-@app_commands.describe(tipo="Escolha o tipo de batalha para filtrar (opcional)")
+@app_commands.describe(tipo="Escolha o tipo para filtrar (Geral, Comp, Ginasio, Convencional)")
 @app_commands.choices(tipo=[
+    app_commands.Choice(name="📋 Geral", value="Geral"),
     app_commands.Choice(name="🏆 Competitiva", value="Comp"),
     app_commands.Choice(name="🏛️ Ginasio", value="Ginasio"),
     app_commands.Choice(name="⚔️ Convencional", value="Convencional"),
-    app_commands.Choice(name="📋 Geral", value="Geral")
 ])
 async def tabela(interaction: discord.Interaction, tipo: str = "Geral"):
     tipo = tipo.capitalize()
 
-    # Consulta dinâmica com filtro opcional
     if tipo == "Geral":
-        stats = await db.get_page(50, 0)
+        stats = await db.get_page(50, 0)                 # 6 colunas
+        titulo = "Geral"
     else:
-        stats = await db.get_page_tipo(tipo, 50, 0)
+        stats = await db.get_page_tipo(tipo, 50, 0)      # 6 colunas (mesmo shape)
+        titulo = tipo
 
     if not stats:
-        return await interaction.response.send_message(
-            f"⚠️ Nenhum registro encontrado para o tipo **{tipo}**."
-        )
+        await interaction.response.send_message(f"⚠️ Nenhum registro encontrado para **{titulo}**.")
+        return
 
-    msg = f"🏅 **Tabela de Jogadores - {tipo}** 🏅\n\n"
-    for player, wins, losses, winrate, score in stats:
-        msg += f"**{player}** - 🏆 {wins}W / ❌ {losses}L | 💯 {winrate}% | ⭐ {score} pts\n"
+    # Tabela monoespaçada
+    msg = f"🏅 **Tabela de Jogadores — {titulo}** 🏅\n```\n"
+    msg += f"{'Jogador':<12}{'Tipo':<12}{'W':>3}{'L':>3}{'Win%':>8}{'Pts':>6}\n"
+    msg += "-" * 45 + "\n"
 
+    for player, tipo_row, wins, losses, winrate, score in stats:
+        msg += f"{player:<12}{tipo_row:<12}{wins:>3}{losses:>3}{winrate:>8.1f}{score:>6}\n"
+
+    msg += "```"
     await interaction.response.send_message(msg)
-
 
 
 @bot.tree.command(name="reset", description="Reseta a tabela de batalhas (somente o dono).")
